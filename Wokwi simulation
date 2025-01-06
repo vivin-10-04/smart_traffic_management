@@ -1,0 +1,175 @@
+IOT SIMULATION:
+Tool Used: Wokwi 
+
+Code Summary
+This Arduino sketch is an intelligent traffic management system for emergency ambulances. It is made operational using ultrasonic sensors and three significant sequential nodes (checkpoints) to determine the proximity of an ambulance. The system then controls on off patterns of the sequence at every node, which changes between red and green in relation to measured distance, more favorably allowing the ambulance through. LEDs represent the color scheme for traffic lights and change based on proximity levels. The logic ensures efficient and safe passage for the ambulance while maintaining sequential control of traffic lights.
+
+Functions and Descriptions
+
+1. `setup()`  
+Description:  
+Initializes the hardware setup by configuring the ultrasonic sensor pins (`TRIG_PIN`, `ECHO_PIN`) as outputs and inputs, respectively, and setting LED pins (`GREEN_LED`, `RED_LED`) as outputs. Serial communication is also started for debugging purposes.  
+
+Return: None (runs once at program startup).
+
+2. `loop()`  
+Description:
+Runs the core flow of the programme indefinitely. For every node, it computes the distance through the ultrasonic sensor. If this distance is smaller than 20 cm (threshold for proximity) the relevant green LED is turned on, and this node is marked as processed; otherwise, the red LED stays in position. In addition, after a delay of 5 seconds, the red LED will be asserted again in case that within a closer threshold of 10 cm, an ambulance is passing by.
+
+
+Return: None. Runs forever.
+
+3. `getDistance(int trigPin, int echoPin)`   
+DESCRIPTION
+Calculates distance using the ultrasonic HC-SR04 sensor by sending a pulse from the trigger pin and measuring how long it takes to return at the echo pin and then converts that duration in microseconds into distance in centimeters. The formula used is:  
+\\[
+\\text{Distance (cm)} = \\frac{\\text{Duration (µs)} \\times 0.034}{2}
+\\]  
+
+Return: Float value representing the measured distance in centimeters.
+
+4. `activateTrafficLight(int greenLed, int redLed)`  
+Description:  
+Activates the green LED and deactivates the red LED for a given node.  
+ 
+Return: None.
+
+ Main Workflow
+1. Node 1 Processing:
+- Read the distance from `getDistance(TRIG_PIN_1, ECHO_PIN_1)`.  
+   - If the ambulance is within 20 cm, this function will call the `activateTrafficLight(GREEN_LED_1, RED_LED_1)` to turn on the green light and mark `processedNode1` to be true.  
+   - When the distance is below 10 cm after 5 seconds, return the red light using `activateTrafficLight(RED_LED_1, GREEN_LED_1)`.  
+
+2. Processing Node 2:
+- Runs after `processedNode1` is true.  This measures the distance by calling `getDistance(TRIG_PIN_2, ECHO_PIN_2)`.  When the ambulance is within 20 cm of it, switch on the green light for Node 2 and set `processedNode2` to be true.  After some time has elapsed (5 seconds in this case), reset the red light if it measures the distance to be below 10 cm.
+
+3. Node 3 Processing: 
+   It will begin as soon as `processedNode2` becomes true. 
+   Compute the distance via `getDistance(TRIG_PIN_3, ECHO_PIN_3)`. 
+   If the ambulance approaches within 20 cm of Node 3, it will trigger the green light for Node 3 and set `processedNode3` as true.
+- Set the red light back to Node 3 at the same setting after 5 seconds.
+
+4. Continuous running
+   - The `loop()` function will run continuously and monitor the distances, processing each node one after another
+   - The sensors won't be flooded with continuous readings through a 500 ms delay.
+
+This structured workflow ensures efficient and real-time control of traffic lights to facilitate emergency vehicle movement.
+
+Code:
+
+#define TRIG_PIN_1 2
+#define ECHO_PIN_1 3
+#define TRIG_PIN_2 4
+#define ECHO_PIN_2 5
+#define TRIG_PIN_3 6
+#define ECHO_PIN_3 7
+
+#define GREEN_LED_1 8
+#define RED_LED_1 9
+#define GREEN_LED_2 10
+#define RED_LED_2 11
+#define GREEN_LED_3 12
+#define RED_LED_3 13
+
+bool processedNode1 = false;
+bool processedNode2 = false;
+bool processedNode3 = false;
+
+void setup() {
+  pinMode(TRIG_PIN_1, OUTPUT);
+  pinMode(ECHO_PIN_1, INPUT);
+  pinMode(TRIG_PIN_2, OUTPUT);
+  pinMode(ECHO_PIN_2, INPUT);
+  pinMode(TRIG_PIN_3, OUTPUT);
+  pinMode(ECHO_PIN_3, INPUT);
+
+  pinMode(GREEN_LED_1, OUTPUT);
+  pinMode(RED_LED_1, OUTPUT);
+  pinMode(GREEN_LED_2, OUTPUT);
+  pinMode(RED_LED_2, OUTPUT);
+  pinMode(GREEN_LED_3, OUTPUT);
+  pinMode(RED_LED_3, OUTPUT);
+
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Step 1: Node 1 logic
+  if (!processedNode1) {
+    float distance1 = getDistance(TRIG_PIN_1, ECHO_PIN_1);
+    Serial.print("Node 1 Distance: ");
+    Serial.println(distance1);
+
+    if (distance1 < 20) { // Threshold for Node 1 (ambulance is near)
+      activateTrafficLight(GREEN_LED_1, RED_LED_1);
+      processedNode1 = true; // Move to Node 2 logic after Node 1 is processed
+    } else {
+      // If distance is not below threshold, turn red light on and keep waiting
+      activateTrafficLight(RED_LED_1, GREEN_LED_1);
+    }
+    delay(5000);
+    if(distance1 < 10){
+        activateTrafficLight(RED_LED_1,GREEN_LED_1);
+    }
+    
+  }
+
+  // Step 2: Node 2 logic (after Node 1 is processed)
+  if (processedNode1 && !processedNode2) {
+    float distance2 = getDistance(TRIG_PIN_2, ECHO_PIN_2);
+    Serial.print("Node 2 Distance: ");
+    Serial.println(distance2);
+
+    if (distance2 < 20) { // Threshold for Node 2 (ambulance is near)
+      activateTrafficLight(GREEN_LED_2, RED_LED_2);
+      processedNode2 = true; // Move to Node 3 logic after Node 2 is processed
+    } else {
+      // If distance is not below threshold, turn red light on and keep waiting
+      activateTrafficLight(RED_LED_2, GREEN_LED_2);
+    }
+    delay(5000);
+    if(distance2 < 10){
+        activateTrafficLight(RED_LED_2,GREEN_LED_2);
+    }
+    
+  }
+
+  // Step 3: Node 3 logic (after Node 2 is processed)
+  if (processedNode2 && !processedNode3) {
+    float distance3 = getDistance(TRIG_PIN_3, ECHO_PIN_3);
+    Serial.print("Node 3 Distance: ");
+    Serial.println(distance3);
+
+    if (distance3 < 20) { // Threshold for Node 3 (ambulance is near)
+      activateTrafficLight(GREEN_LED_3, RED_LED_3);
+      processedNode3 = true; // All nodes processed after Node 3 is processed
+    } else {
+      // If distance is not below threshold, turn red light on and keep waiting
+      activateTrafficLight(RED_LED_3, GREEN_LED_3);
+    }
+    delay(5000);
+    if(distance3 < 10){
+        activateTrafficLight(RED_LED_3,GREEN_LED_3);
+    }
+  }
+
+  delay(500); // Small delay for sensor readings to avoid overloading
+}
+
+// Function to calculate distance using the HC-SR04 ultrasonic sensor
+float getDistance(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH);
+  return duration * 0.034 / 2; // Convert to cm
+}
+
+// Function to activate the corresponding green and red lights
+void activateTrafficLight(int greenLed, int redLed) {
+  digitalWrite(greenLed, HIGH);
+  digitalWrite(redLed, LOW);
+}
